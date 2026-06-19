@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @AppStorage("obsHost") private var obsHost = "127.0.0.1"
@@ -11,90 +12,175 @@ struct SettingsView: View {
 
     private var obsManager = OBSConnectionManager.shared
 
+    private let fieldWidth: CGFloat = 220
+
     var body: some View {
-        Form {
-            Section {
-                HStack {
-                    Text("Host")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        TextField("127.0.0.1", text: $obsHost)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 200)
-                        Text("Default: 127.0.0.1")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                obsConnectionCard
+                replayBufferCard
+                outputCard
+                testConnectionCard
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
+    }
+
+    // MARK: - OBS Connection
+
+    private var obsConnectionCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("OBS Connection")
+                .font(.headline)
+                .padding(.bottom, 8)
+
+            cardBackground {
+                VStack(spacing: 0) {
+                    settingsRow(label: "Host") {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            TextField("127.0.0.1", text: $obsHost)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: fieldWidth)
+                            Text("Default: 127.0.0.1")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Divider().padding(.leading, 14)
+                    settingsRow(label: "Port") {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            TextField("7274", value: $obsPort, format: .number.grouping(.never))
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: fieldWidth)
+                            Text("Default: 7274")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Divider().padding(.leading, 14)
+                    settingsRow(label: "Enable Authentication") {
+                        Toggle("", isOn: $obsAuthEnabled)
+                            .labelsHidden()
+                    }
+                    if obsAuthEnabled {
+                        Divider().padding(.leading, 14)
+                        settingsRow(label: "Password") {
+                            SecureField("Password", text: $obsPassword)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: fieldWidth)
+                        }
                     }
                 }
+            }
 
-                HStack {
-                    Text("Port")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        TextField("7274", value: $obsPort, format: .number.grouping(.never))
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 80)
-                        Text("Default: 7274")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+            Text("Make sure WebSocket Server is enabled in OBS under Tools → WebSocket Server Settings, with a matching port.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+        }
+    }
+
+    // MARK: - Replay Buffer
+
+    private var replayBufferCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Replay Buffer")
+                .font(.headline)
+                .padding(.bottom, 8)
+
+            cardBackground {
+                VStack(spacing: 0) {
+                    settingsRow(label: "Enable Replay Buffer") {
+                        Toggle("", isOn: $replayBufferEnabled)
+                            .labelsHidden()
+                    }
+                    Divider().padding(.leading, 14)
+                    settingsRow(label: "Max Replay Time") {
+                        Stepper(value: $replayBufferSeconds, in: 30...600, step: 30) {
+                            Text("\(replayBufferSeconds)s")
+                        }
                     }
                 }
+            }
 
-                Toggle("Enable Authentication", isOn: $obsAuthEnabled)
-                if obsAuthEnabled {
-                    LabeledContent("Password") {
-                        SecureField("Password", text: $obsPassword)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 200)
+            Text("300 seconds is recommended for flexibility when mining older lines.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
+        }
+    }
+
+    // MARK: - Output
+
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Output")
+                .font(.headline)
+                .padding(.bottom, 8)
+
+            cardBackground {
+                settingsRow(label: "Frame Rate") {
+                    Picker("", selection: $obsFrameRate) {
+                        Text("60 fps").tag(60)
+                        Text(defaultFrameRateLabel).tag(30)
+                        Text("15 fps").tag(15)
+                    }
+                    .labelsHidden()
+                    .frame(width: fieldWidth)
+                }
+            }
+        }
+    }
+
+    // MARK: - Test Connection
+
+    private var testConnectionCard: some View {
+        cardBackground {
+            VStack(spacing: 0) {
+                settingsRow(label: "") {
+                    Button("Test Connection") {
+                        OBSConnectionManager.shared.connect(
+                            host: obsHost,
+                            port: obsPort,
+                            password: obsAuthEnabled ? obsPassword : nil
+                        )
                     }
                 }
-            } header: {
-                Text("OBS Connection")
-            } footer: {
-                Text("Make sure WebSocket Server is enabled in OBS under Tools → WebSocket Server Settings, with a matching port. Leave Authentication off for now — it's the more reliable path on macOS.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Toggle("Enable Replay Buffer", isOn: $replayBufferEnabled)
-                Stepper(value: $replayBufferSeconds, in: 30...600, step: 30) {
-                    LabeledContent("Max Replay Time", value: "\(replayBufferSeconds)s")
-                }
-            } header: {
-                Text("Replay Buffer")
-            } footer: {
-                Text("300 seconds is recommended for flexibility when mining older lines.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Picker("Frame Rate", selection: $obsFrameRate) {
-                    Text("60 fps").tag(60)
-                    Text(defaultFrameRateLabel).tag(30)
-                    Text("15 fps").tag(15)
-                }
-            } header: {
-                Text("Output")
-            }
-
-            Section {
-                Button("Test Connection") {
-                    OBSConnectionManager.shared.connect(
-                        host: obsHost,
-                        port: obsPort,
-                        password: obsAuthEnabled ? obsPassword : nil
-                    )
-                }
-                LabeledContent("Status") {
+                Divider().padding(.leading, 14)
+                settingsRow(label: "Status") {
                     statusView
                 }
             }
         }
-        .formStyle(.grouped)
-        .frame(maxWidth: 600)
-        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func settingsRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack {
+            if !label.isEmpty {
+                Text(label)
+            }
+            Spacer()
+            content()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+
+    @ViewBuilder
+    private func cardBackground<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var defaultFrameRateLabel: AttributedString {
