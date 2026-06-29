@@ -10,7 +10,6 @@ struct HomeView: View {
 
             HStack(spacing: 12) {
                 StatusBadge(label: "GSM", status: "Ready", isActive: true)
-                StatusBadge(label: "WebSocket", status: "Disconnected", isActive: false)
                 StatusBadge(label: "Screen Capture", status: captureStatusText, isActive: captureManager.state == .capturing)
                 StatusBadge(label: "Anki", status: "Not Connected", isActive: false)
             }
