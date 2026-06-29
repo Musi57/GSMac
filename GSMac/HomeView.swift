@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HomeView: View {
-    private var obsManager = OBSConnectionManager.shared
+    private var captureManager = ScreenCaptureManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -11,7 +11,7 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 StatusBadge(label: "GSM", status: "Ready", isActive: true)
                 StatusBadge(label: "WebSocket", status: "Disconnected", isActive: false)
-                StatusBadge(label: "OBS", status: obsStatusText, isActive: obsManager.state == .connected)
+                StatusBadge(label: "Screen Capture", status: captureStatusText, isActive: captureManager.state == .capturing)
                 StatusBadge(label: "Anki", status: "Not Connected", isActive: false)
             }
 
@@ -21,12 +21,13 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private var obsStatusText: String {
-        switch obsManager.state {
-        case .disconnected: return "Not Connected"
-        case .connecting:   return "Connecting…"
-        case .connected:    return "Connected"
-        case .failed:       return "Connection Failed"
+    private var captureStatusText: String {
+        switch captureManager.state {
+        case .idle:             return "Idle"
+        case .permissionDenied: return "Permission Denied"
+        case .ready:            return "Ready"
+        case .capturing:        return "Capturing"
+        case .failed:           return "Failed"
         }
     }
 }

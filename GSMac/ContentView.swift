@@ -13,11 +13,6 @@ enum AppTab: String, CaseIterable {
 struct ContentView: View {
     @State private var selectedTab: AppTab = .home
 
-    @AppStorage("obsHost") private var obsHost = "127.0.0.1"
-    @AppStorage("obsPort") private var obsPort = 7274
-    @AppStorage("obsAuthEnabled") private var obsAuthEnabled = false
-    @AppStorage("obsPassword") private var obsPassword = ""
-
     var body: some View {
         VStack(spacing: 0) {
             TabBar(selectedTab: $selectedTab)
@@ -28,11 +23,7 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 600)
         .onAppear {
             AppLogger.shared.log("Application launched", level: .info)
-            OBSConnectionManager.shared.connect(
-                host: obsHost,
-                port: obsPort,
-                password: obsAuthEnabled ? obsPassword : nil
-            )
+            ScreenCaptureManager.shared.checkPermission()
         }
     }
 
@@ -43,7 +34,7 @@ struct ContentView: View {
             HomeView()
         case .logs:
             LogsView()
-        case.settings:
+        case .settings:
             SettingsView()
         default:
             PlaceholderView(title: selectedTab.rawValue)

@@ -2,25 +2,22 @@ import SwiftUI
 import AppKit
 
 struct SettingsView: View {
-    @AppStorage("obsHost") private var obsHost = "127.0.0.1"
-    @AppStorage("obsPort") private var obsPort = 7274
-    @AppStorage("obsAuthEnabled") private var obsAuthEnabled = false
-    @AppStorage("obsPassword") private var obsPassword = ""
+    @AppStorage("captureFrameRate") private var captureFrameRate = 30
     @AppStorage("replayBufferEnabled") private var replayBufferEnabled = true
     @AppStorage("replayBufferSeconds") private var replayBufferSeconds = 300
-    @AppStorage("obsFrameRate") private var obsFrameRate = 30
 
-    private var obsManager = OBSConnectionManager.shared
+    private var captureManager = ScreenCaptureManager.shared
+    @State private var selectedDisplayID: CGDirectDisplayID?
 
     private let fieldWidth: CGFloat = 220
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                obsConnectionCard
-                replayBufferCard
+                captureSourceCard
                 outputCard
-                testConnectionCard
+                replayBufferCard
+                captureControlCard
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -30,63 +27,68 @@ struct SettingsView: View {
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
+        .onAppear {
+            captureManager.refreshAvailableSources()
+        }
     }
 
-    // MARK: - OBS Connection
-
-    private var obsConnectionCard: some View {
+    private var captureSourceCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("OBS Connection")
+            Text("Capture Source")
                 .font(.headline)
                 .padding(.bottom, 8)
 
             cardBackground {
                 VStack(spacing: 0) {
-                    settingsRow(label: "Host") {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            TextField("127.0.0.1", text: $obsHost)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: fieldWidth)
-                            Text("Default: 127.0.0.1")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                    settingsRow(label: "Display") {
+                        Picker("", selection: $selectedDisplayID) {
+                            ForEach(captureManager.availableDisplays) { display in
+                                Text("Display \(display.id)").tag(Optional(display.id))
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: fieldWidth)
+                        .onChange(of: selectedDisplayID) { _, newValue in
+                            if let newValue, let display = captureManager.availableDisplays.first(where: { $0.id == newValue }) {
+                                captureManager.selectDisplay(display)
+                            }
                         }
                     }
                     Divider().padding(.leading, 14)
-                    settingsRow(label: "Port") {
-                        VStack(alignment: .trailing, spacing: 2) {
-                            TextField("7274", value: $obsPort, format: .number.grouping(.never))
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: fieldWidth)
-                            Text("Default: 7274")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Divider().padding(.leading, 14)
-                    settingsRow(label: "Enable Authentication") {
-                        Toggle("", isOn: $obsAuthEnabled)
-                            .labelsHidden()
-                    }
-                    if obsAuthEnabled {
-                        Divider().padding(.leading, 14)
-                        settingsRow(label: "Password") {
-                            SecureField("Password", text: $obsPassword)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: fieldWidth)
+                    settingsRow(label: "") {
+                        Button("Refresh Displays") {
+                            captureManager.refreshAvailableSources()
                         }
                     }
                 }
             }
 
-            Text("Make sure WebSocket Server is enabled in OBS under Tools → WebSocket Server Settings, with a matching port.")
+            Text("Pick which display GSM should capture. Window-specific game capture is a later step.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 8)
         }
     }
 
-    // MARK: - Replay Buffer
+    private var outputCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Output")
+                .font(.headline)
+                .padding(.bottom, 8)
+
+            cardBackground {
+                settingsRow(label: "Frame Rate") {
+                    Picker("", selection: $captureFrameRate) {
+                        Text("60 fps").tag(60)
+                        Text(defaultFrameRateLabel).tag(30)
+                        Text("15 fps").tag(15)
+                    }
+                    .labelsHidden()
+                    .frame(width: fieldWidth)
+                }
+            }
+        }
+    }
 
     private var replayBufferCard: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -109,47 +111,24 @@ struct SettingsView: View {
                 }
             }
 
-            Text("300 seconds is recommended for flexibility when mining older lines.")
+            Text("This will control how much footage the capture engine retains once the rolling buffer is implemented. Not active yet.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.top, 8)
         }
     }
 
-    // MARK: - Output
-
-    private var outputCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Output")
-                .font(.headline)
-                .padding(.bottom, 8)
-
-            cardBackground {
-                settingsRow(label: "Frame Rate") {
-                    Picker("", selection: $obsFrameRate) {
-                        Text("60 fps").tag(60)
-                        Text(defaultFrameRateLabel).tag(30)
-                        Text("15 fps").tag(15)
-                    }
-                    .labelsHidden()
-                    .frame(width: fieldWidth)
-                }
-            }
-        }
-    }
-
-    // MARK: - Test Connection
-
-    private var testConnectionCard: some View {
+    private var captureControlCard: some View {
         cardBackground {
             VStack(spacing: 0) {
                 settingsRow(label: "") {
-                    Button("Test Connection") {
-                        OBSConnectionManager.shared.connect(
-                            host: obsHost,
-                            port: obsPort,
-                            password: obsAuthEnabled ? obsPassword : nil
-                        )
+                    HStack(spacing: 8) {
+                        Button("Start Capture") {
+                            captureManager.startCapture(frameRate: captureFrameRate)
+                        }
+                        Button("Stop Capture") {
+                            captureManager.stopCapture()
+                        }
                     }
                 }
                 Divider().padding(.leading, 14)
@@ -165,9 +144,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func settingsRow<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack {
-            if !label.isEmpty {
-                Text(label)
-            }
+            if !label.isEmpty { Text(label) }
             Spacer()
             content()
         }
@@ -194,15 +171,12 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var statusView: some View {
-        switch obsManager.state {
-        case .disconnected:
-            Text("Not Connected").foregroundStyle(.secondary)
-        case .connecting:
-            Text("Connecting…").foregroundStyle(.yellow)
-        case .connected:
-            Text("Connected").foregroundStyle(.green)
-        case .failed:
-            Text("Connection Failed").foregroundStyle(.red)
+        switch captureManager.state {
+        case .idle:             Text("Idle").foregroundStyle(.secondary)
+        case .permissionDenied: Text("Permission Denied").foregroundStyle(.red)
+        case .ready:            Text("Ready").foregroundStyle(.secondary)
+        case .capturing:        Text("Capturing").foregroundStyle(.green)
+        case .failed:           Text("Capture Failed").foregroundStyle(.red)
         }
     }
 }
