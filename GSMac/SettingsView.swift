@@ -158,7 +158,7 @@ struct SettingsView: View {
                 settingsRow(label: "") {
                     HStack(spacing: 8) {
                         Button("Start Capture") {
-                            captureManager.startCapture(frameRate: captureFrameRate)
+                            captureManager.startCapture(frameRate: captureFrameRate, bufferSeconds: replayBufferSeconds)
                         }
                         Button("Stop Capture") {
                             captureManager.stopCapture()

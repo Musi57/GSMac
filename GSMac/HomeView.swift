@@ -4,19 +4,19 @@ struct HomeView: View {
     private var captureManager = ScreenCaptureManager.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Status")
-                .font(.headline)
-
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                StatusBadge(label: "GSM", status: "Ready", isActive: true)
-                StatusBadge(label: "Screen Capture", status: captureStatusText, isActive: captureManager.state == .capturing)
-                StatusBadge(label: "Anki", status: "Not Connected", isActive: false)
+                StatusBadge(label: "GSM",            status: "Ready",             isActive: true)
+                StatusBadge(label: "Screen Capture", status: captureStatusText,   isActive: captureManager.state == .capturing)
+                StatusBadge(label: "Anki",           status: "Not Connected",     isActive: false)
             }
+            .padding(16)
 
-            Spacer()
+            Divider()
+
+            CapturePreviewView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
